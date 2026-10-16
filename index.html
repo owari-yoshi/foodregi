@@ -44,11 +44,12 @@ input,select{padding:8px;border:1px solid var(--bd);border-radius:8px;background
 .bar2{height:6px}
 .card{background:var(--card);border:2px solid var(--ac);border-radius:14px;padding:12px;margin-bottom:12px}.card.done{border:1px solid var(--bd);opacity:.7}
 .card h2{margin:0 0 6px;font-size:26px;display:flex;justify-content:space-between;align-items:baseline}.card h2 span{font-size:13px;color:var(--sub);font-weight:400}
-.card li{font-size:19px;margin:3px 0}.card ul{margin:6px 0 10px;padding-left:20px}
+.card li{font-size:19px;margin:3px 0}.ur{margin:10px 0}.un{font-size:20px;font-weight:700;margin-bottom:5px}.ub{display:flex;gap:8px;flex-wrap:wrap}.uc{min-width:84px;height:54px;border-radius:10px;border:2px solid var(--bd);background:var(--bg);font-size:16px;font-weight:800}.uc.s1{background:#f59f00;color:#000;border-color:#f59f00}.uc.s2{background:var(--ok);color:#fff;border-color:var(--ok)}.card ul{margin:6px 0 10px;padding-left:20px}
 .seg{display:flex;gap:6px;margin-bottom:10px}.seg button{flex:1;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--card)}.seg .on{background:var(--ac);color:#fff}
 .bar-i{height:10px;background:var(--ac);border-radius:5px;opacity:.7}
 .warn{background:#fff3bf;color:#5f3b00;padding:8px 12px;font-size:13px}
 #toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:20px;opacity:0;transition:.25s;pointer-events:none;z-index:9;max-width:90%}#toast.on{opacity:1}
+.un{display:flex;justify-content:space-between;align-items:center;width:100%;padding:14px;margin-bottom:6px;border-radius:10px;border:1px solid var(--bd);font-size:19px;background:var(--bg)}.s-w b{color:var(--sub)}.s-c{background:#ffa94d;color:#222;border-color:#ffa94d}.s-d{background:var(--ok);color:#fff;opacity:.7;border-color:var(--ok)}
 .empty{text-align:center;color:var(--sub);padding:40px 0}
 </style></head><body>
 <div id="warn" class="warn" hidden></div><div id="app"></div><div id="toast"></div>
@@ -104,7 +105,7 @@ function render(){
     <div class="ln"><select id="ad" style="flex:1">${S.menu.map((m,k)=>`<option value="${k}">${esc(m.n)} ${yen(m.p)}</option>`).join('')}</select><button onclick="addL()">追加</button></div>
     <button class="pb" onclick="saveEdit()">修正を保存して厨房に反映</button><button class="pb rd" onclick="delOrder()">この注文を取り消す</button></main>`}
   else if(V==='kitchen'){t='厨房';const l=cur(),nw=l.filter(o=>o.status==='new').sort((a,b)=>a.createdAt-b.createdAt),dn=l.filter(o=>o.status==='done').sort((a,b)=>b.createdAt-a.createdAt).slice(0,5);
-    const cd=(o,d)=>`<div class="card ${d?'done':''}"><h2>#${o.num}${o.edited?' ✏️修正':''}<span>${hm(o.createdAt)}</span></h2><ul>${o.items.map(i=>`<li>${esc(i.n)} ×${i.q}</li>`).join('')}</ul><button class="pb ${d?'al':''}" onclick="setSt('${o.id}','${d?'new':'done'}')">${d?'調理中に戻す':'完成'}</button></div>`;
+    const cd=(o,d)=>{const us=units(o),dn=us.filter(u=>u.s==='d').length;return `<div class="card ${d?'done':''}"><h2>#${o.num}${o.edited?' ✏️修正':''}<span>${dn}/${us.length}完成 ${hm(o.createdAt)}</span></h2>${us.map(u=>`<button class="un s-${u.s}" onclick="tapU('${o.id}',${u.i})"><span>${esc(u.n)}</span><b>${{w:'待ち',c:'準備中',d:'完成 ✓'}[u.s]}</b></button>`).join('')}<div class="ln" style="margin-top:8px"><button class="sm" style="flex:1" onclick="allU('${o.id}','c')">全て準備中</button><button class="sm" style="flex:1" onclick="allU('${o.id}','d')">全て完成</button>${d?`<button class="sm" style="flex:1" onclick="allU('${o.id}','w')">戻す</button>`:''}</div></div>`};
     b='<main>'+(nw.map(o=>cd(o,0)).join('')||'<div class="empty">調理待ちの注文はありません</div>')+(dn.length?'<p class="sub">完成済み（直近）</p>'+dn.map(o=>cd(o,1)).join(''):'')+'</main>'}
   else if(V==='close'){t='営業終了';const A=sum(cur());
     b=`<main><div class="box"><div class="sub">本日の売上</div><div class="big">${yen(A.cash+A.other)}</div><div class="r"><span>注文数</span><b>${A.count}件</b></div><div class="r"><span>現金</span><b>${yen(A.cash)}</b></div><div class="r"><span>現金以外</span><b>${yen(A.other)}</b></div></div>
@@ -148,11 +149,20 @@ async function finish(k){const c=cart(),T=tot(c),items=lines(c);if(!items.length
   put('orders',{id:'o'+now,num,items,total:T,status:'new',createdAt:now,day:dayId(),pay:k,cash:k==='cash'?Number(P.cash):null});
   if(carts.length>1)carts=carts.filter(x=>x!==c),ct=carts[0].id;else c.q={};
   toast('注文#'+num+'を厨房へ送信しました');back()}
-function setSt(id,s){const o=S.orders.find(x=>x.id===id);if(o){put('orders',{...o,status:s});render()}}
+const units=o=>{let k=0;return o.items.flatMap(i=>Array.from({length:i.q},()=>{const j=k++;return{n:i.n,k:j,s:(o.u||[])[j]||0}}))};
+function cdN(o,d){const us=units(o),dn=us.filter(x=>x.s===2).length,g=[];us.forEach(x=>{let r=g.find(y=>y.n===x.n);if(!r)g.push(r={n:x.n,l:[]});r.l.push(x)});
+return `<div class="card ${d?'done':''}"><h2>#${o.num}${o.edited?' ✏️修正':''}<span>${hm(o.createdAt)} ・ ${dn}/${us.length}</span></h2>${g.map(r=>`<div class="ur"><div class="un">${esc(r.n)}</div><div class="ub">${r.l.map(x=>`<button class="uc s${x.s}" onclick="tapU('${o.id}',${x.k})">${['未','準備中','完成'][x.s]}</button>`).join('')}</div></div>`).join('')}<button class="pb ${d?'al':''}" onclick="setSt('${o.id}','${d?'new':'done'}')">${d?'調理中に戻す':'全部完成'}</button></div>`}
+function tapU(id,k){const o=S.orders.find(x=>x.id===id);if(!o)return;const u=units(o).map(x=>x.s);u[k]=(u[k]+1)%3;put('orders',{...o,u,status:u.every(v=>v===2)?'done':'new'});render()}
+const units=o=>{const r=[];let i=0;o.items.forEach(x=>{for(let k=0;k<x.q;k++){r.push({i,n:x.n+(x.q>1?' '+(k+1)+'/'+x.q:''),s:(o.us||[])[i]||'w'});i++}});return r};
+function setU(o,us){put('orders',{...o,us,status:us.every(x=>x==='d')?'done':'new'});render()}
+function tapU(id,i){const o=S.orders.find(x=>x.id===id);if(!o)return;const us=units(o).map(u=>u.s);us[i]={w:'c',c:'d',d:'w'}[us[i]];setU(o,us)}
+function allU(id,s){const o=S.orders.find(x=>x.id===id);if(o)setU(o,units(o).map(()=>s))}
+function setSt(id,s){const o=S.orders.find(x=>x.id===id);if(o){put('orders',{...o,status:s,u:units(o).map(()=>s==='done'?2:0)});render()}}
+function setStOld(id,s){const o=S.orders.find(x=>x.id===id);if(o){put('orders',{...o,status:s});render()}}
 function edit(id){E=JSON.parse(JSON.stringify(S.orders.find(o=>o.id===id)));go('edit')}
 function addL(){const m=S.menu[$('#ad').value];if(m){E.items.push({n:m.n,p:m.p,q:1});render()}}
 function saveEdit(){E.items=E.items.filter(i=>i.q>0);if(!E.items.length)return toast('商品がありません。取り消す場合は「取り消す」を押してください');
-  E.total=E.items.reduce((s,i)=>s+i.p*i.q,0);E.status='new';E.edited=true;put('orders',E);toast('修正を厨房に反映しました');back()}
+  E.total=E.items.reduce((s,i)=>s+i.p*i.q,0);E.us=[];E.status='new';E.edited=true;delete E.u;put('orders',E);toast('修正を厨房に反映しました');back()}
 function delOrder(){ask('この注文を取り消しますか？',()=>{S.orders=S.orders.filter(o=>o.id!==E.id);if(db)w(db.doc('orders/'+E.id).delete());back()})}
 function sum(os){const A={cash:0,other:0,count:os.length,hc:Array(24).fill(0),ho:Array(24).fill(0),items:[]},m={};
   os.forEach(o=>{const c=o.pay==='cash',h=new Date(o.createdAt).getHours();(c?A.hc:A.ho)[h]+=o.total;c?A.cash+=o.total:A.other+=o.total;
