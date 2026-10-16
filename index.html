@@ -172,7 +172,7 @@ const hx=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new Te
 const rid=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join('');
 function ss(k,v){try{if(v===undefined)return sessionStorage.getItem(k);sessionStorage.setItem(k,v)}catch(e){return null}}
 function useStore(id){ss('store',id);location.reload()}
-async function goStore(v){const c=String(v||'').trim().toLowerCase();if(!/^[a-z0-9]+$/.test(c))return toast('店舗コードを入力してください');try{const r=raw.doc('stores/'+c);if((await r.get()).exists)return useStore(c);if(c==='19891013'&&(await raw.collection('stores').where('name','==','オワリ').get()).empty){await r.set({name:'オワリ',owner:true,order:Math.max(-1,...S.stores.map(x=>x.order||0))+1});return useStore(c)}toast('店舗コードが見つかりません')}catch(e){toast('確認できません')}}
+async function goStore(v){const c=String(v||'').trim().toLowerCase();if(!/^[a-z0-9]+$/.test(c))return toast('店舗コードを入力してください');try{const r=raw.doc('stores/'+c);if((await r.get()).exists)return useStore(c);if(c==='19891013'&&(await raw.collection('stores').where('name','==','チーズステーキ').get()).empty){await r.set({name:'チーズステーキ',owner:true,order:Math.max(-1,...S.stores.map(x=>x.order||0))+1});return useStore(c)}toast('店舗コードが見つかりません')}catch(e){toast('確認できません')}}
 function setStore(){goStore($('#sc').value)}
 async function firstStore(){const n=$('#sn').value.trim();if(!n)return toast('店舗名を入力してください');const id=rid();try{await raw.doc('stores/'+id).set({name:n,order:0});useStore(id)}catch(e){toast('作成できません')}}
 function saveNick(){const v=$('#nk').value.trim();if(!v)return toast('ニックネームを入力してください');NICK=v;ls('nick',v);V='reg';render()}
@@ -208,7 +208,7 @@ async function chgOwnerPw(){const o=$('#op0').value,n=$('#op1').value,c=$('#op2'
   let pr;try{pr=await sb.decrypt({name:'AES-GCM',iv:ub(OWNER.iv)},await pk(o,OWNER.salt),ub(OWNER.w))}catch(e){return toast('今のパスワードが違います')}
   try{const salt=b64(crypto.getRandomValues(new Uint8Array(16))),iv=crypto.getRandomValues(new Uint8Array(12)),w=b64(await sb.encrypt({name:'AES-GCM',iv},await pk(n,salt),pr)),nd={pub:OWNER.pub,salt,iv:b64(iv),w};
     await raw.doc('owner/pw').set(nd);OWNER=nd;['#op0','#op1','#op2'].forEach(k=>{$(k).value=''});toast('オーナーのパスワードを変更しました')}catch(e){toast('変更できません。もう一度試してください')}}
-const isOwn=()=>!!(STORE.owner||STORE.name==='オワリ');
+const isOwn=()=>!!(STORE.owner||SID==='19891013');
 async function ensureStoreKey(){if(STORE.pub)return;const o=await mkPair(SID),r=raw.doc('stores/'+SID);const fin=await raw.runTransaction(async t=>{const d=await t.get(r),x=d.data()||{};if(x.pub)return x;t.update(r,o);return o});STORE={...STORE,...fin}}
 const atabs=()=>`<div class="seg"><button class="${AT==='m'?'on':''}" onclick="AT='m';render()">店舗管理</button><button class="${AT==='s'?'on':''}" onclick="openAdminSales()">店舗別売上履歴</button></div>`;
 function openAdminSales(){AT='s';if(ALLD)render();else loadAllDays()}
@@ -244,7 +244,7 @@ function aggD(ds){const A={cash:0,other:0,count:0,hc:Array(24).fill(0),ho:Array(
   try{if(!window.firebase||!FIREBASE_CONFIG.projectId)throw 0;firebase.initializeApp(FIREBASE_CONFIG);raw=firebase.firestore();db=raw}catch(e){db=null}
   if(!db){const e=$('#warn');e.textContent='Firebaseの設定が未入力か読み込めません。この端末内だけで動作しています';e.hidden=false;return}
   try{const o=await raw.doc('owner/pw').get();OWNER=o.exists?o.data():null}catch(e){}
-  raw.collection('stores').orderBy('order').onSnapshot(s=>{S.stores=s.docs.map(d=>({id:d.id,...d.data()}));S.noStores=!s.docs.length;const x=S.stores.find(y=>y.id===SID);if(x){STORE=x;if(x.name==='オワリ'&&!x.owner)raw.doc('stores/'+SID).update({owner:true}).catch(()=>{})}else if(SID&&!s.metadata.fromCache&&s.docs.length){ss('store','');location.reload()}refresh()},()=>{});
+  raw.collection('stores').orderBy('order').onSnapshot(s=>{S.stores=s.docs.map(d=>({id:d.id,...d.data()}));S.noStores=!s.docs.length;const x=S.stores.find(y=>y.id===SID);if(x){STORE=x;const rf=raw.doc('stores/'+SID);if(SID==='19891013'&&(!x.owner||x.name==='オワリ'))rf.update({owner:true,name:x.name==='オワリ'?'チーズステーキ':x.name}).catch(()=>{});else if(x.owner&&x.name==='オワリ')rf.update({owner:false}).catch(()=>{})}else if(SID&&!s.metadata.fromCache&&s.docs.length){ss('store','');location.reload()}refresh()},()=>{});
   if(!SID){V='setup';render();return}
   db={doc:p=>raw.doc('stores/'+SID+'/'+p),collection:p=>raw.collection('stores/'+SID+'/'+p),batch:()=>raw.batch(),runTransaction:f=>raw.runTransaction(f)};
   const sub=(q,f)=>q.onSnapshot(s=>{f(s);refresh()},e=>{$('#warn').textContent='同期エラー: '+e.code;$('#warn').hidden=false});
