@@ -105,7 +105,7 @@ function render(){
     <div class="ln"><select id="ad" style="flex:1">${S.menu.map((m,k)=>`<option value="${k}">${esc(m.n)} ${yen(m.p)}</option>`).join('')}</select><button onclick="addL()">追加</button></div>
     <button class="pb" onclick="saveEdit()">修正を保存して厨房に反映</button><button class="pb rd" onclick="delOrder()">この注文を取り消す</button></main>`}
   else if(V==='kitchen'){t='厨房';const l=cur(),nw=l.filter(o=>o.status==='new').sort((a,b)=>a.createdAt-b.createdAt),dn=l.filter(o=>o.status==='done').sort((a,b)=>b.createdAt-a.createdAt).slice(0,5);
-    const cd=(o,d)=>{const us=units(o),dn=us.filter(u=>u.s==='d').length;return `<div class="card ${d?'done':''}"><h2>#${o.num}${o.edited?' ✏️修正':''}<span>${dn}/${us.length}完成 ${hm(o.createdAt)}</span></h2>${us.map(u=>`<button class="un s-${u.s}" onclick="tapU('${o.id}',${u.i})"><span>${esc(u.n)}</span><b>${{w:'待ち',c:'準備中',d:'完成 ✓'}[u.s]}</b></button>`).join('')}<div class="ln" style="margin-top:8px"><button class="sm" style="flex:1" onclick="allU('${o.id}','c')">全て準備中</button><button class="sm" style="flex:1" onclick="allU('${o.id}','d')">全て完成</button>${d?`<button class="sm" style="flex:1" onclick="allU('${o.id}','w')">戻す</button>`:''}</div></div>`};
+    const cd=(o,d)=>{const us=units(o),dn=us.filter(u=>u.s==='d').length;return `<div class="card ${d?'done':''}"><h2>#${o.num}${o.edited?' ✏️修正':''}<span>${dn}/${us.length}完成 ${hm(o.createdAt)}</span></h2>${us.map(u=>`<button class="un s-${u.s}" onclick="tapU('${o.id}',${u.i})"><span>${esc(u.n)}</span><b>${{c:'準備中',d:'完成 ✓'}[u.s]}</b></button>`).join('')}<div class="ln" style="margin-top:8px"><button class="sm" style="flex:1" onclick="allU('${o.id}','d')">全て完成</button>${d?`<button class="sm" style="flex:1" onclick="allU('${o.id}','c')">準備中に戻す</button>`:''}</div></div>`};
     b='<main>'+(nw.map(o=>cd(o,0)).join('')||'<div class="empty">調理待ちの注文はありません</div>')+(dn.length?'<p class="sub">完成済み（直近）</p>'+dn.map(o=>cd(o,1)).join(''):'')+'</main>'}
   else if(V==='close'){t='営業終了';const A=sum(cur());
     b=`<main><div class="box"><div class="sub">本日の売上</div><div class="big">${yen(A.cash+A.other)}</div><div class="r"><span>注文数</span><b>${A.count}件</b></div><div class="r"><span>現金</span><b>${yen(A.cash)}</b></div><div class="r"><span>現金以外</span><b>${yen(A.other)}</b></div></div>
@@ -149,9 +149,9 @@ async function finish(k){const c=cart(),T=tot(c),items=lines(c);if(!items.length
   put('orders',{id:'o'+now,num,items,total:T,status:'new',createdAt:now,day:dayId(),pay:k,cash:k==='cash'?Number(P.cash):null});
   if(carts.length>1)carts=carts.filter(x=>x!==c),ct=carts[0].id;else c.q={};
   toast('注文#'+num+'を厨房へ送信しました');back()}
-const units=o=>{const r=[];let i=0;o.items.forEach(x=>{for(let k=0;k<x.q;k++){r.push({i,n:x.n+(x.q>1?' '+(k+1)+'/'+x.q:''),s:(o.us||[])[i]||'w'});i++}});return r};
+const units=o=>{const r=[];let i=0;o.items.forEach(x=>{for(let k=0;k<x.q;k++){r.push({i,n:x.n+(x.q>1?' '+(k+1)+'/'+x.q:''),s:(o.us||[])[i]==='d'?'d':'c'});i++}});return r};
 function setU(o,us){put('orders',{...o,us,status:us.every(x=>x==='d')?'done':'new'});render()}
-function tapU(id,i){const o=S.orders.find(x=>x.id===id);if(!o)return;const us=units(o).map(u=>u.s);us[i]={w:'c',c:'d',d:'w'}[us[i]];setU(o,us)}
+function tapU(id,i){const o=S.orders.find(x=>x.id===id);if(!o)return;const us=units(o).map(u=>u.s);us[i]={c:'d',d:'c'}[us[i]];setU(o,us)}
 function allU(id,s){const o=S.orders.find(x=>x.id===id);if(o)setU(o,units(o).map(()=>s))}
 function setSt(id,s){const o=S.orders.find(x=>x.id===id);if(o){put('orders',{...o,status:s,u:units(o).map(()=>s==='done'?2:0)});render()}}
 function setStOld(id,s){const o=S.orders.find(x=>x.id===id);if(o){put('orders',{...o,status:s});render()}}
