@@ -149,10 +149,6 @@ async function finish(k){const c=cart(),T=tot(c),items=lines(c);if(!items.length
   put('orders',{id:'o'+now,num,items,total:T,status:'new',createdAt:now,day:dayId(),pay:k,cash:k==='cash'?Number(P.cash):null});
   if(carts.length>1)carts=carts.filter(x=>x!==c),ct=carts[0].id;else c.q={};
   toast('注文#'+num+'を厨房へ送信しました');back()}
-const units=o=>{let k=0;return o.items.flatMap(i=>Array.from({length:i.q},()=>{const j=k++;return{n:i.n,k:j,s:(o.u||[])[j]||0}}))};
-function cdN(o,d){const us=units(o),dn=us.filter(x=>x.s===2).length,g=[];us.forEach(x=>{let r=g.find(y=>y.n===x.n);if(!r)g.push(r={n:x.n,l:[]});r.l.push(x)});
-return `<div class="card ${d?'done':''}"><h2>#${o.num}${o.edited?' ✏️修正':''}<span>${hm(o.createdAt)} ・ ${dn}/${us.length}</span></h2>${g.map(r=>`<div class="ur"><div class="un">${esc(r.n)}</div><div class="ub">${r.l.map(x=>`<button class="uc s${x.s}" onclick="tapU('${o.id}',${x.k})">${['未','準備中','完成'][x.s]}</button>`).join('')}</div></div>`).join('')}<button class="pb ${d?'al':''}" onclick="setSt('${o.id}','${d?'new':'done'}')">${d?'調理中に戻す':'全部完成'}</button></div>`}
-function tapU(id,k){const o=S.orders.find(x=>x.id===id);if(!o)return;const u=units(o).map(x=>x.s);u[k]=(u[k]+1)%3;put('orders',{...o,u,status:u.every(v=>v===2)?'done':'new'});render()}
 const units=o=>{const r=[];let i=0;o.items.forEach(x=>{for(let k=0;k<x.q;k++){r.push({i,n:x.n+(x.q>1?' '+(k+1)+'/'+x.q:''),s:(o.us||[])[i]||'w'});i++}});return r};
 function setU(o,us){put('orders',{...o,us,status:us.every(x=>x==='d')?'done':'new'});render()}
 function tapU(id,i){const o=S.orders.find(x=>x.id===id);if(!o)return;const us=units(o).map(u=>u.s);us[i]={w:'c',c:'d',d:'w'}[us[i]];setU(o,us)}
