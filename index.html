@@ -61,7 +61,7 @@ const FIREBASE_CONFIG={apiKey:"AIzaSyAQmAMXOm0AyLSiXqjad9lA6BFmvqCEog4",authDoma
 const $=s=>document.querySelector(s),yen=n=>'¥'+Number(n||0).toLocaleString('ja-JP');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const w=p=>Promise.resolve(p).catch(()=>toast('保存できません（通信状態とFirebaseの設定を確認してください）'));
-let db=null,S={menu:[],pages:[],orders:[],days:[],state:{}},V='home',nav=[],carts=[{id:1,q:{}}],ct=1,nt=2,P={cash:''},E=null,H={lvl:'d',key:null,f:'a'},dragging=false,seen=null,pgR=null,pgP=null,PX=null;
+let db=null,S={menu:[],pages:[],stores:[],orders:[],days:[],state:{}},V='home',nav=[],carts=[{id:1,q:{}}],ct=1,nt=2,P={cash:''},E=null,H={lvl:'d',key:null,f:'a'},dragging=false,seen=null,pgR=null,pgP=null,PX=null,raw=null,SID=ls('store'),STORE={},NICK=ls('nick')||'',OWNER=null,RO=null,OWN=[],KEY=null,KM='',OKEY=null,DD=[];
 const dayId=()=>S.state.day||'d0',cur=()=>S.orders.filter(o=>o.day===dayId()),cart=()=>carts.find(c=>c.id===ct);
 const lines=c=>Object.entries(c.q).map(([k,q])=>{const[i,s]=k.split('#'),m=S.menu.find(x=>x.id===i);if(!m)return null;const z=s!==undefined?(m.sz||[])[s]:null;if(s!==undefined&&!z)return null;return{n:m.n+(z?'（'+z.n+'）':''),p:z?z.p:m.p,q}}).filter(Boolean),cnt=c=>lines(c).reduce((a,l)=>a+l.q,0),tot=c=>lines(c).reduce((s,l)=>s+l.p*l.q,0),iq=(q,id)=>Object.entries(q).filter(([k])=>k.split('#')[0]===id).reduce((a,[,v])=>a+v,0);
 const hm=t=>new Date(t).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
@@ -82,24 +82,30 @@ function renPage(v){pages().find(x=>x.id===pgP).n=v;saveMenu()}
 function delPage(){if(pages().length<2)return toast('最後のページは削除できません');const id=pgP,x=pages().find(y=>y.id===id);ask('「'+x.n+'」とそのページの商品をすべて削除しますか？',()=>{S.menu=S.menu.filter(m=>pg(m)!==id);S.pages=S.pages.filter(y=>y.id!==id);pgP=null;pgR=null;saveMenu();render()})}
 function addItem(){S.menu.push({id:'m'+Date.now(),n:'新商品',p:0,pg:pgP});saveMenu();render()}
 function delItem(k){ask('この商品を削除しますか？',()=>{S.menu.splice(k,1);saveMenu();render()})}
-function go(v){nav.push(V);V=v;render()}function back(){V=nav.pop()||'home';render()}
-function refresh(){if(['home','kitchen','close','orders','sales'].includes(V))render();else if(V==='reg'&&!dragging){drawGrid();drawBar()}}
+function go(v){nav.push(V);V=v;render()}function back(){if(RO){S.days=OWN;RO=null;DD=[];KEY=null}V=nav.pop()||'home';render()}
+function refresh(){if(['home','kitchen','close','orders','sales','admin','setup'].includes(V))render();else if(V==='reg'&&!dragging){drawGrid();drawBar()}}
 
 function render(){
+  if(!['sales','lock','admin'].includes(V)){KEY=null;OKEY=null;DD=[]}
   let t='',r='',b='',af=null,bk=V!=='home';
-  if(V==='home'){const c=cur(),n=c.filter(o=>o.status==='new').length;t='フードレジ';
-    b=`<p class="sub">営業中：${c.length}件 / ${yen(c.reduce((s,o)=>s+o.total,0))}</p><div class="hg">
-    <button class="hc" onclick="go('reg')"><i>🧾</i>レジ</button>
+  if(V==='home'){const c=cur(),n=c.filter(o=>o.status==='new').length;t=esc(STORE.name||'フードレジ');r='<button class="hb" onclick="go(\'apw\')">管理</button>';
+    b=`<p class="sub">${NICK?'👤 '+esc(NICK)+'　':''}<a href="#" onclick="go('nick');return false">ニックネーム変更</a><br>営業中：${c.length}件 / ${yen(c.reduce((s,o)=>s+o.total,0))}</p><div class="hg">
+    <button class="hc" onclick="go(NICK?'reg':'nick')"><i>🧾</i>レジ</button>
     <button class="hc" onclick="go('kitchen')"><i>🍳</i>厨房${n?`<span class="bg">${n}</span>`:''}</button>
     <button class="hc" onclick="go('products')"><i>🍔</i>商品登録</button>
-    <button class="hc" onclick="go('sales')"><i>📊</i>売上履歴</button></div>`}
+    <button class="hc" onclick="KEY=null;go('lock')"><i>📊</i>売上履歴</button></div>`}
   else if(V==='reg'){t='レジ';r='<button class="hb" onclick="go(\'close\')">営業終了</button>';
     b=`<div class="tabs" id="tabs"></div><div class="tabs" id="ptabs"></div><main><div class="grid" id="grid"></div></main><div class="bar"><button class="hi" onclick="go('orders')">履歴</button><button class="nx" id="nx" onclick="P.cash='';go('pay')"></button></div>`;af=()=>{drawTabs();drawGrid();drawBar();bindReg()}}
+  else if(V==='setup'){t='店舗の設定';bk=false;b=`<main><div class="box"><b>この端末の店舗コード</b><input id="sc" style="width:100%;margin-top:8px" placeholder="店舗コード"><button class="pb al" onclick="setStore()">この店舗で使う</button></div>${S.noStores?'<div class="box"><b>はじめて使う場合</b><div class="sub">最初の店舗（オーナーの店舗）を作ります</div><input id="sn" style="width:100%;margin-top:8px" placeholder="店舗名"><button class="pb" onclick="firstStore()">店舗を作成</button></div>':''}</main>`}
+  else if(V==='nick'){t='ニックネーム';b=`<main><div class="box"><div class="sub">レジ打ちをした人が分かるように、ニックネームを入れてください（1回だけ）</div><input id="nk" value="${esc(NICK)}" style="width:100%;margin-top:8px"><button class="pb" onclick="saveNick()">レジ打ち開始</button></div></main>`}
+  else if(V==='apw'){t='管理';b=`<main><div class="box"><div class="sub">${OWNER&&OWNER.pub?'オーナーのパスワードを入力してください':'はじめに、オーナーのパスワードを決めてください（4文字以上）'}</div><input id="ow" type="password" style="width:100%;margin-top:8px"><button class="pb" onclick="ownerGo()">${OWNER&&OWNER.pub?'開く':'パスワードを設定'}</button></div></main>`}
+  else if(V==='admin'){t='店舗管理';b=`<main><div id="stl">${S.stores.map(x=>`<div class="box pi" data-id="${x.id}"><div class="ln"><span class="hd" style="font-size:22px;padding:6px 4px;touch-action:none">☰</span><input style="flex:1" value="${esc(x.name)}" onchange="renStore('${x.id}',this.value)"><button onclick="viewStore('${x.id}')">詳細</button></div><div class="sub">店舗コード：<b>${x.id}</b></div><button class="sm" style="margin-top:6px" onclick="delStore('${x.id}')">この店舗を削除</button></div>`).join('')}</div><div class="ln"><input id="an" style="flex:1" placeholder="新しい店舗名"><button onclick="addStore()">＋店舗追加</button></div><p class="sub">☰を長押しして並び替え。店舗コードを、その店舗のスタッフに伝えてください。</p></main>`;af=()=>mkDrag($('#stl'),'.pi','.hd',o=>o.forEach((id,i)=>raw.doc('stores/'+id).update({order:i})))}
+  else if(V==='lock'){t='売上履歴';b=`<main><div class="box"><div class="sub">${STORE.pub?'売上履歴のパスワードを入力してください':'この店舗の売上履歴のパスワードを決めてください（4文字以上）。締め処理の前に、必ず設定してください。'}</div><input id="lp" type="password" style="width:100%;margin-top:8px"><button class="pb" onclick="unlock()">${STORE.pub?'開く':'パスワードを設定'}</button><p class="sub">パスワードを忘れると、この店舗の過去の売上は、オーナーしか見られなくなります。</p></div></main>`}
   else if(V==='pay'){t='注文'+ct;const T=tot(cart());
     b=`<div style="padding:60px 20px 0"><div style="text-align:right" class="big">${cnt(cart())}点合計 ${yen(T)}</div><div class="r" style="margin-top:24px"><span>現金</span><div class="big" id="cv" style="background:var(--card);flex:1;text-align:right;padding:8px 12px;border-radius:12px"></div></div><div class="big" style="text-align:right;margin-top:24px" id="cg"></div></div>
     <div class="kp">${['7','8','9','⌫','4','5','6','削除','1','2','3','現金以外で完了','0','00','000','完了'].map((k,i)=>`<button class="${i%4==3?'c4 go':''}" onclick="key('${k}')" ${i==15?'':''}>${k}</button>`).join('')}</div>`;af=drawPay}
   else if(V==='orders'){t='本日の注文履歴';const l=cur().slice().sort((a,b)=>b.createdAt-a.createdAt);
-    b='<main>'+(l.map(o=>`<div class="box"><div class="r"><b>#${o.num} <span class="sub">${hm(o.createdAt)} ${o.status==='done'?'完成':'調理中'}${o.edited?' 修正済':''} ${o.pay==='cash'?'現金':'現金以外'}</span></b><b>${yen(o.total)}</b></div><div class="sub">${o.items.map(i=>esc(i.n)+'×'+i.q).join(' / ')}</div><button class="sm" style="margin-top:6px" onclick="edit('${o.id}')">修正</button></div>`).join('')||'<div class="empty">注文はまだありません</div>')+'</main>'}
+    b='<main>'+(l.map(o=>`<div class="box"><div class="r"><b>#${o.num} <span class="sub">${hm(o.createdAt)} ${o.status==='done'?'完成':'調理中'}${o.edited?' 修正済':''} ${o.pay==='cash'?'現金':'現金以外'} ${o.by?'👤'+esc(o.by):''}</span></b><b>${yen(o.total)}</b></div><div class="sub">${o.items.map(i=>esc(i.n)+'×'+i.q).join(' / ')}</div><button class="sm" style="margin-top:6px" onclick="edit('${o.id}')">修正</button></div>`).join('')||'<div class="empty">注文はまだありません</div>')+'</main>'}
   else if(V==='edit'){t='注文#'+E.num+'を修正';
     b=`<main>${E.items.map((i,k)=>`<div class="ln"><input value="${esc(i.n)}" onchange="E.items[${k}].n=this.value"><input type="number" value="${i.p}" onchange="E.items[${k}].p=+this.value"><input type="number" value="${i.q}" onchange="E.items[${k}].q=+this.value"><button onclick="E.items.splice(${k},1);render()">×</button></div>`).join('')}
     <div class="ln"><select id="ad" style="flex:1">${S.menu.map((m,k)=>`<option value="${k}">${esc(m.n)} ${yen(m.p)}</option>`).join('')}</select><button onclick="addL()">追加</button></div>
@@ -114,7 +120,7 @@ function render(){
   else if(V==='products'){t='商品登録';b=prodView();af=bindProd}else if(V==='productsX'){t='';
     b=`<main>${S.menu.map((m,k)=>`<div class="ln"><input value="${esc(m.n)}" onchange="S.menu[${k}].n=this.value;saveMenu()"><input type="number" value="${m.p}" onchange="S.menu[${k}].p=+this.value;saveMenu()"><button onclick="if(confirm('削除しますか？')){S.menu.splice(${k},1);saveMenu();render()}">×</button></div>`).join('')||'<div class="empty">商品がありません</div>'}
     <button class="pb al" onclick="S.menu.push({id:'m'+Date.now(),n:'新商品',p:0});saveMenu();render()">＋ 商品を追加</button><p class="sub">並び替えはレジ画面で商品を長押ししてドラッグします。</p></main>`}
-  else if(V==='sales'){t='売上履歴';b=salesView()}
+  else if(V==='sales'){t='売上履歴'+(RO?'：'+esc((S.stores.find(x=>x.id===RO)||{}).name||''):'');b=salesView()}
   $('#app').innerHTML=`<header>${bk?'<button class="bk" onclick="back()">＜</button>':'<span></span>'}<b>${t}</b><span>${r}</span></header>${b}`;
   if(af)af();
 }
@@ -146,7 +152,7 @@ function key(k){const T=tot(cart());
 function drawPay(){const T=tot(cart()),c=Number(P.cash);$('#cv').textContent=P.cash?Number(P.cash).toLocaleString():'0';$('#cg').textContent='おつり '+(c>=T?yen(c-T):'—')}
 async function finish(k){const c=cart(),T=tot(c),items=lines(c);if(!items.length||finish.b)return;finish.b=1;setTimeout(()=>{finish.b=0},1500);
   const now=Date.now();let num=cur().reduce((a,o)=>Math.max(a,o.num||0),0)+1;if(db)try{num=await db.runTransaction(async t=>{const r=db.doc('counters/'+dayId()),x=await t.get(r),n=(x.exists?x.data().n:0)+1;t.set(r,{n});return n})}catch(e){}
-  put('orders',{id:'o'+now,num,items,total:T,status:'new',createdAt:now,day:dayId(),pay:k,cash:k==='cash'?Number(P.cash):null});
+  put('orders',{id:'o'+now,num,items,total:T,status:'new',createdAt:now,day:dayId(),pay:k,by:NICK,cash:k==='cash'?Number(P.cash):null});
   if(carts.length>1)carts=carts.filter(x=>x!==c),ct=carts[0].id;else c.q={};
   toast('注文#'+num+'を厨房へ送信しました');back()}
 const units=o=>{const r=[];let i=0;o.items.forEach(x=>{for(let k=0;k<x.q;k++){r.push({i,n:x.n+(x.q>1?' '+(k+1)+'/'+x.q:''),s:(o.us||[])[i]==='d'?'d':'c'});i++}});return r};
@@ -160,33 +166,65 @@ function addL(){const m=S.menu[$('#ad').value];if(m){E.items.push({n:m.n,p:m.p,q
 function saveEdit(){E.items=E.items.filter(i=>i.q>0);if(!E.items.length)return toast('商品がありません。取り消す場合は「取り消す」を押してください');
   E.total=E.items.reduce((s,i)=>s+i.p*i.q,0);E.us=[];E.status='new';E.edited=true;delete E.u;put('orders',E);toast('修正を厨房に反映しました');back()}
 function delOrder(){ask('この注文を取り消しますか？',()=>{S.orders=S.orders.filter(o=>o.id!==E.id);if(db)w(db.doc('orders/'+E.id).delete());back()})}
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+const hx=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const rid=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join('');
+function useStore(id){ls('store',id);location.reload()}
+function setStore(){const c=$('#sc').value.trim().toLowerCase();if(!c)return;raw.doc('stores/'+c).get().then(d=>d.exists?useStore(c):toast('店舗コードが見つかりません')).catch(()=>toast('確認できません'))}
+async function firstStore(){const n=$('#sn').value.trim();if(!n)return toast('店舗名を入力してください');const id=rid();try{await raw.doc('stores/'+id).set({name:n,order:0});useStore(id)}catch(e){toast('作成できません')}}
+function saveNick(){const v=$('#nk').value.trim();if(!v)return toast('ニックネームを入力してください');NICK=v;ls('nick',v);V='reg';render()}
+async function ownerGo(){const v=$('#ow').value;if(v.length<4)return toast('4文字以上で入力してください');const had=OWNER&&OWNER.pub;try{if(!had){const n=await mkPair(v);await raw.doc('owner/pw').set(n);OWNER=n}OKEY=await openKey(OWNER,v)}catch(e){return toast(had?'パスワードが違います':'設定できません')}V='admin';render()}
+function addStore(){const n=$('#an').value.trim();if(!n)return toast('店舗名を入力してください');const mx=Math.max(-1,...S.stores.map(x=>x.order||0));w(raw.doc('stores/'+rid()).set({name:n,order:mx+1}))}
+function renStore(id,v){w(raw.doc('stores/'+id).update({name:v}))}
+async function viewStore(id){if(!OKEY)return toast('もう一度「管理」から開いてください');try{const sn=await raw.collection('stores/'+id+'/days').orderBy('date','desc').get();OWN=S.days;S.days=sn.docs.map(d=>({id:d.id,...d.data()}));KEY=OKEY;KM='kO';await decAll();RO=id;H={lvl:'d',key:null,f:'a'};go('sales')}catch(e){toast('読み込めません')}}
+function delStore(id){if(id===SID)return toast('この端末で使用中の店舗は削除できません');const x=S.stores.find(y=>y.id===id);ask('「'+x.name+'」を削除します。この店舗の注文・売上・商品もすべて消えます。元に戻せません。',async()=>{try{for(const c of['orders','days','config','counters']){const sn=await raw.collection('stores/'+id+'/'+c).get();for(let i=0;i<sn.docs.length;i+=400){const b=raw.batch();sn.docs.slice(i,i+400).forEach(d=>b.delete(d.ref));await b.commit()}}await raw.doc('stores/'+id).delete()}catch(e){toast('削除できません')}})}
+const TE=new TextEncoder(),TD=new TextDecoder(),sb=crypto.subtle;
+const b64=u=>{u=new Uint8Array(u);let s='';for(let i=0;i<u.length;i+=8192)s+=String.fromCharCode(...u.subarray(i,i+8192));return btoa(s)},ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const pk=async(pw,salt)=>sb.deriveKey({name:'PBKDF2',salt:ub(salt),iterations:200000,hash:'SHA-256'},await sb.importKey('raw',TE.encode(pw),'PBKDF2',false,['deriveKey']),{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+async function mkPair(pw){const kp=await sb.generateKey({name:'RSA-OAEP',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['encrypt','decrypt']),salt=b64(crypto.getRandomValues(new Uint8Array(16))),iv=crypto.getRandomValues(new Uint8Array(12)),ct=await sb.encrypt({name:'AES-GCM',iv},await pk(pw,salt),await sb.exportKey('pkcs8',kp.privateKey));return{pub:b64(await sb.exportKey('spki',kp.publicKey)),salt,iv:b64(iv),w:b64(ct)}}
+async function openKey(o,pw){const pr=await sb.decrypt({name:'AES-GCM',iv:ub(o.iv)},await pk(pw,o.salt),ub(o.w));return sb.importKey('pkcs8',pr,{name:'RSA-OAEP',hash:'SHA-256'},false,['decrypt'])}
+const impPub=p=>sb.importKey('spki',ub(p),{name:'RSA-OAEP',hash:'SHA-256'},false,['encrypt']);
+async function seal(obj,pS,pO){const k=await sb.generateKey({name:'AES-GCM',length:256},true,['encrypt']),iv=crypto.getRandomValues(new Uint8Array(12)),ct=await sb.encrypt({name:'AES-GCM',iv},k,TE.encode(JSON.stringify(obj))),raw=await sb.exportKey('raw',k),wr=async p=>b64(await sb.encrypt({name:'RSA-OAEP'},await impPub(p),raw));return{iv:b64(iv),ct:b64(ct),kS:await wr(pS),kO:await wr(pO)}}
+async function unseal(d,priv,f){const raw=await sb.decrypt({name:'RSA-OAEP'},priv,ub(d[f])),k=await sb.importKey('raw',raw,'AES-GCM',false,['decrypt']);return JSON.parse(TD.decode(await sb.decrypt({name:'AES-GCM',iv:ub(d.iv)},k,ub(d.ct))))}
+async function decAll(){DD=(await Promise.all(S.days.map(async d=>{if(!d.ct)return d;try{const x=await unseal(d,KEY,KM);return{...d,...x.sl,_o:x.os}}catch(e){return null}}))).filter(Boolean)}
+async function unlockWith(v){let k,m;try{k=await openKey(STORE,v);m='kS'}catch(e){if(OWNER&&OWNER.pub){k=await openKey(OWNER,v);m='kO'}else throw e}KEY=k;KM=m;await decAll();H={lvl:'d',key:null,f:'a'};V='sales';render()}
+async function unlock(){const v=$('#lp').value;if(!STORE.pub){if(v.length<4)return toast('4文字以上で入力してください');try{const o=await mkPair(v);await raw.doc('stores/'+SID).update(o);STORE={...STORE,...o};await unlockWith(v)}catch(e){toast('設定できません')}return}try{await unlockWith(v)}catch(e){toast('パスワードが違います')}}
+async function wipe(ps){for(let i=0;i<ps.length;i+=400){const b=db.batch();ps.slice(i,i+400).forEach(p=>b.delete(db.doc(p)));await b.commit()}}
+function delPeriod(){const ds=S.days.filter(d=>d.date.startsWith(H.key));ask(H.key+'の売上（'+ds.length+'日分）を削除します。元に戻せません。',async()=>{const ids=new Set(ds.map(d=>d.id)),sr=new Set(ds.map(d=>d.src).filter(Boolean));const ps=[...ds.map(d=>'days/'+d.id),...S.orders.filter(o=>sr.has(o.day)).map(o=>'orders/'+o.id),...[...sr].map(x=>'counters/'+x)];S.days=S.days.filter(d=>!ids.has(d.id));DD=DD.filter(d=>!ids.has(d.id));S.orders=S.orders.filter(o=>!sr.has(o.day));H.key=null;if(db)try{await wipe(ps)}catch(e){toast('削除できません')}render()})}
+function undoClose(){const d=DD.filter(x=>x._o).sort((a,b)=>b.closedAt-a.closedAt)[0];if(!d)return toast('取り消せる締めがありません');if(cur().length)return toast('締めたあとに新しい注文があるため、取り消せません');ask(d.date+'の締めを取り消して、営業中に戻します。',async()=>{try{for(const o of d._o){const{id,...r}=o;await db.doc('orders/'+id).set(r)}await db.doc('config/state').set({day:d.src});await db.doc('days/'+d.id).delete()}catch(e){return toast('取り消せません')}S.orders.push(...d._o);S.days=S.days.filter(x=>x.id!==d.id);DD=DD.filter(x=>x.id!==d.id);S.state={day:d.src};nav=[];V='home';render()})}
+function wipeAll(){ask('注文と売上履歴をすべて削除します（商品登録は残ります）。元に戻せません。',()=>ask('本当に削除しますか？',async()=>{const ids=new Set([...S.orders.map(o=>o.day),...S.days.map(d=>d.src),'d0',dayId()].filter(Boolean));const ps=[...S.orders.map(o=>'orders/'+o.id),...S.days.map(d=>'days/'+d.id),...[...ids].map(x=>'counters/'+x),'config/state'];S.orders=[];S.days=[];S.state={};carts=[{id:1,q:{}}];ct=1;nt=2;if(db)try{await wipe(ps)}catch(e){toast('削除できません')}toast('削除しました');nav=[];V='home';render()}))}
 function sum(os){const A={cash:0,other:0,count:os.length,hc:Array(24).fill(0),ho:Array(24).fill(0),items:[]},m={};
   os.forEach(o=>{const c=o.pay==='cash',h=new Date(o.createdAt).getHours();(c?A.hc:A.ho)[h]+=o.total;c?A.cash+=o.total:A.other+=o.total;
     o.items.forEach(i=>{const x=m[i.n]||(m[i.n]={n:i.n,c:0,o:0,qc:0,qo:0});c?(x.c+=i.p*i.q,x.qc+=i.q):(x.o+=i.p*i.q,x.qo+=i.q)})});
   A.items=Object.values(m).sort((a,b)=>b.c+b.o-a.c-a.o);return A}
-function doClose(){const os=cur();if(!os.length)return toast('注文がないため締められません');ask('営業を終了して締めますか？',()=>closeNow(os))}function closeNow(os){
-  const A=sum(os),d=new Date(Math.min(...os.map(o=>o.createdAt))),p=n=>String(n).padStart(2,'0');
-  put('days',{id:'x'+Date.now(),date:`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`,cash:A.cash,other:A.other,count:A.count,hc:A.hc,ho:A.ho,items:A.items,closedAt:Date.now()});
-  S.state={day:'d'+Date.now()};if(db)w(db.doc('config/state').set(S.state));
+function doClose(){const os=cur();if(!os.length)return toast('注文がないため締められません');if(!STORE.pub)return toast('先に売上履歴でパスワードを設定してください');if(!OWNER||!OWNER.pub)return toast('先にオーナーが「管理」でパスワードを設定してください');ask('営業を終了して締めますか？',()=>closeNow(os))}async function closeNow(os){if(!db)return toast('同期が使えないため締められません');const A=sum(os),d=new Date(Math.min(...os.map(o=>o.createdAt))),p=n=>String(n).padStart(2,'0'),id='x'+Date.now(),src=dayId();
+  try{const sl={cash:A.cash,other:A.other,count:A.count,hc:A.hc,ho:A.ho,items:A.items};
+    const doc={src,date:`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`,closedAt:Date.now(),...await seal({sl,os},STORE.pub,OWNER.pub)};
+    await db.doc('days/'+id).set(doc);const st={day:'d'+Date.now()};await db.doc('config/state').set(st);
+    S.days.unshift({id,...doc});S.state=st;await wipe([...os.map(o=>'orders/'+o.id),'counters/'+src]);S.orders=S.orders.filter(o=>o.day!==src)}catch(e){return toast('締め処理に失敗しました。もう一度試してください')}
   carts=[{id:1,q:{}}];ct=1;nt=2;nav=[];V='home';toast('営業を終了しました');render()}
 function salesView(){const L={y:4,m:7,d:10},K=H.key,pk=(c,o)=>H.f==='c'?c:H.f==='o'?o:c+o;
   const seg=`<div class="seg">${[['y','年別'],['m','月別'],['d','日別']].map(([k,n])=>`<button class="${H.lvl===k?'on':''}" onclick="H.lvl='${k}';H.key=null;render()">${n}</button>`).join('')}</div><div class="seg">${[['a','すべて'],['c','現金'],['o','現金以外']].map(([k,n])=>`<button class="${H.f===k?'on':''}" onclick="H.f='${k}';render()">${n}</button>`).join('')}</div>`;
-  if(!K){const g={};S.days.forEach(d=>{const k=d.date.slice(0,L[H.lvl]);(g[k]=g[k]||[]).push(d)});
-    return '<main>'+seg+(Object.keys(g).sort().reverse().map(k=>{const A=aggD(g[k]);return `<button class="box" style="width:100%;text-align:left" onclick="H.key='${k}';render()"><div class="r"><b>${k}</b><b>${yen(pk(A.cash,A.other))}</b></div><div class="sub">${A.count}件</div></button>`}).join('')||'<div class="empty">締め処理済みの売上はまだありません</div>')+'</main>'}
-  const A=aggD(S.days.filter(d=>d.date.startsWith(K))),hs=A.hc.map((c,i)=>[i,pk(c,A.ho[i])]).filter(x=>x[1]),mx=Math.max(1,...hs.map(x=>x[1]));
+  if(!K){const g={};DD.forEach(d=>{const k=d.date.slice(0,L[H.lvl]);(g[k]=g[k]||[]).push(d)});
+    return '<main>'+(RO?'':'<button class="sm" onclick="undoClose()">直近の締めを取り消す</button>')+seg+(Object.keys(g).sort().reverse().map(k=>{const A=aggD(g[k]);return `<button class="box" style="width:100%;text-align:left" onclick="H.key='${k}';render()"><div class="r"><b>${k}</b><b>${yen(pk(A.cash,A.other))}</b></div><div class="sub">${A.count}件</div></button>`}).join('')||'<div class="empty">締め処理済みの売上はまだありません</div>')+'</main>'}
+  const A=aggD(DD.filter(d=>d.date.startsWith(K))),hs=A.hc.map((c,i)=>[i,pk(c,A.ho[i])]).filter(x=>x[1]),mx=Math.max(1,...hs.map(x=>x[1]));
   return `<main><button class="sm" onclick="H.key=null;render()">＜ 一覧へ</button> <b>${K}</b>${seg}<div class="box"><div class="big">${yen(pk(A.cash,A.other))}</div><div class="r"><span>注文数</span><b>${A.count}件</b></div><div class="r"><span>現金</span><b>${yen(A.cash)}</b></div><div class="r"><span>現金以外</span><b>${yen(A.other)}</b></div></div>
   <div class="box"><b>時間帯別</b>${hs.map(([h,v])=>`<div class="r"><span style="width:44px">${h}時</span><div style="flex:1"><div class="bar-i" style="width:${v/mx*100}%"></div></div><span>${yen(v)}</span></div>`).join('')||'<div class="sub">データなし</div>'}</div>
-  <div class="box"><b>商品別</b>${A.items.map(i=>[i.n,pk(i.c,i.o),H.f==='c'?i.qc:H.f==='o'?i.qo:i.qc+i.qo]).filter(x=>x[2]).sort((a,b)=>b[1]-a[1]).map(x=>`<div class="r"><span>${esc(x[0])} ×${x[2]}</span><span>${yen(x[1])}</span></div>`).join('')||'<div class="sub">データなし</div>'}</div></main>`}
+  <div class="box"><b>商品別</b>${A.items.map(i=>[i.n,pk(i.c,i.o),H.f==='c'?i.qc:H.f==='o'?i.qo:i.qc+i.qo]).filter(x=>x[2]).sort((a,b)=>b[1]-a[1]).map(x=>`<div class="r"><span>${esc(x[0])} ×${x[2]}</span><span>${yen(x[1])}</span></div>`).join('')||'<div class="sub">データなし</div>'}</div>${H.lvl==='d'&&!RO?'<button class="pb rd" onclick="delPeriod()">この日の売上を削除</button>':''}</main>`}
 function aggD(ds){const A={cash:0,other:0,count:0,hc:Array(24).fill(0),ho:Array(24).fill(0)},m={};
   ds.forEach(d=>{A.cash+=d.cash;A.other+=d.other;A.count+=d.count;d.hc.forEach((v,i)=>{A.hc[i]+=v;A.ho[i]+=d.ho[i]});d.items.forEach(x=>{const y=m[x.n]||(m[x.n]={n:x.n,c:0,o:0,qc:0,qo:0});['c','o','qc','qo'].forEach(k=>y[k]+=x[k])})});A.items=Object.values(m);return A}
 
 (async()=>{render();
-  try{if(!window.firebase||!FIREBASE_CONFIG.projectId)throw 0;firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore()}catch(e){db=null}
+  try{if(!window.firebase||!FIREBASE_CONFIG.projectId)throw 0;firebase.initializeApp(FIREBASE_CONFIG);raw=firebase.firestore();db=raw}catch(e){db=null}
   if(!db){const e=$('#warn');e.textContent='Firebaseの設定が未入力か読み込めません。この端末内だけで動作しています';e.hidden=false;return}
+  try{const o=await raw.doc('owner/pw').get();OWNER=o.exists?o.data():null}catch(e){}
+  raw.collection('stores').orderBy('order').onSnapshot(s=>{S.stores=s.docs.map(d=>({id:d.id,...d.data()}));S.noStores=!s.docs.length;const x=S.stores.find(y=>y.id===SID);if(x)STORE=x;else if(SID&&!s.metadata.fromCache&&s.docs.length){ls('store','');location.reload()}refresh()},()=>{});
+  if(!SID){V='setup';render();return}
+  db={doc:p=>raw.doc('stores/'+SID+'/'+p),collection:p=>raw.collection('stores/'+SID+'/'+p),batch:()=>raw.batch(),runTransaction:f=>raw.runTransaction(f)};
   const sub=(q,f)=>q.onSnapshot(s=>{f(s);refresh()},e=>{$('#warn').textContent='同期エラー: '+e.code;$('#warn').hidden=false});
   sub(db.collection('orders').orderBy('createdAt','desc').limit(500),s=>{S.orders=s.docs.map(d=>({id:d.id,...d.data()}));
     const ids=new Set(S.orders.filter(o=>o.status==='new').map(o=>o.id));if(seen&&V==='kitchen'&&[...ids].some(i=>!seen.has(i))){try{navigator.vibrate(300)}catch(_){}toast('新しい注文')}seen=ids});
-  sub(db.collection('days').orderBy('date','desc').limit(1000),s=>{S.days=s.docs.map(d=>({id:d.id,...d.data()}))});
-  sub(db.collection('config'),s=>s.docs.forEach(d=>{if(d.id==='menu'){const x=JSON.parse(JSON.stringify(d.data()));S.menu=x.items||[];S.pages=x.pages||[]}if(d.id==='state')S.state=d.data()}));
+  sub(db.collection('days').orderBy('date','desc').limit(1000),s=>{const l=s.docs.map(d=>({id:d.id,...d.data()}));if(RO)OWN=l;else S.days=l});
+  sub(db.collection('config'),s=>{S.state={};s.docs.forEach(d=>{if(d.id==='menu'){const x=JSON.parse(JSON.stringify(d.data()));S.menu=x.items||[];S.pages=x.pages||[]}if(d.id==='state')S.state=d.data()})});
 })();
 </script></body></html>
