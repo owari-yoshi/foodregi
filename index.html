@@ -46,7 +46,7 @@ input,select{padding:8px;border:1px solid var(--bd);border-radius:8px;background
 .card h2{margin:0 0 6px;font-size:26px;display:flex;justify-content:space-between;align-items:baseline}.card h2 span{font-size:13px;color:var(--sub);font-weight:400}
 .card li{font-size:19px;margin:3px 0}.ur{margin:10px 0}.un{font-size:20px;font-weight:700;margin-bottom:5px}.ub{display:flex;gap:8px;flex-wrap:wrap}.uc{min-width:84px;height:54px;border-radius:10px;border:2px solid var(--bd);background:var(--bg);font-size:16px;font-weight:800}.uc.s1{background:#f59f00;color:#000;border-color:#f59f00}.uc.s2{background:var(--ok);color:#fff;border-color:var(--ok)}.card ul{margin:6px 0 10px;padding-left:20px}
 .seg{display:flex;gap:6px;margin-bottom:10px}.seg button{flex:1;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--card)}.seg .on{background:var(--ac);color:#fff}
-.bar-i{height:10px;background:var(--ac);border-radius:5px;opacity:.7}
+.sg2 button{padding:10px 2px;font-size:14px;white-space:nowrap}.bar-i{height:10px;background:var(--ac);border-radius:5px;opacity:.7}
 .warn{background:#fff3bf;color:#5f3b00;padding:8px 12px;font-size:13px}
 #toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:20px;opacity:0;transition:.25s;pointer-events:none;z-index:9;max-width:90%}#toast.on{opacity:1}
 .un{display:flex;justify-content:space-between;align-items:center;width:100%;padding:14px;margin-bottom:6px;border-radius:10px;border:1px solid var(--bd);font-size:19px;background:var(--bg)}.s-w b{color:var(--sub)}.s-c{background:#ffa94d;color:#222;border-color:#ffa94d}.s-d{background:var(--ok);color:#fff;opacity:.7;border-color:var(--ok)}
@@ -65,7 +65,7 @@ const FIREBASE_CONFIG={apiKey:"AIzaSyAQmAMXOm0AyLSiXqjad9lA6BFmvqCEog4",authDoma
 const $=s=>document.querySelector(s),yen=n=>'¥'+Number(n||0).toLocaleString('ja-JP');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const w=p=>Promise.resolve(p).catch(()=>toast('保存できません（通信状態とFirebaseの設定を確認してください）'));
-let OT='l',OV='a',OD=new Set(),db=null,S={menu:[],pages:[],stores:[],orders:[],days:[],state:{}},V='home',nav=[],carts=[{id:1,q:{}}],ct=1,nt=2,P={cash:''},E=null,H={lvl:'d',key:null,f:'a'},dragging=false,dragAt=0,pressing=false,rpend=false,lastSig='',seen=null,pgR=null,pgP=null,PX=null,raw=null,SID=ss('store'),STORE={},NICK=ls('nick')||'',OWNER=null,RO=null,OWN=[],KEY=null,KM='',OKEY=null,DD=[],TS=false,AT='m',AS='',ALLD=null;
+let OT='l',OV='a',OD=new Set(),db=null,S={menu:[],pages:[],stores:[],orders:[],days:[],state:{},inv:[],invlog:[],invset:null},V='home',nav=[],carts=[{id:1,q:{}}],ct=1,nt=2,P={cash:''},E=null,H={lvl:'d',key:null,f:'a'},dragging=false,dragAt=0,pressing=false,rpend=false,lastSig='',seen=null,pgR=null,pgP=null,PX=null,raw=null,SID=ss('store'),STORE={},NICK=ls('nick')||'',OWNER=null,RO=null,OWN=[],KEY=null,KM='',OKEY=null,DD=[],TS=false,AT='m',AS='',ALLD=null;
 const dayId=()=>S.state.day||'d0',cur=()=>S.orders.filter(o=>o.day===dayId()),cart=()=>carts.find(c=>c.id===ct);
 const lines=c=>Object.entries(c.q).map(([k,q])=>{const[i,s]=k.split('#'),m=S.menu.find(x=>x.id===i);if(!m)return null;const z=s!==undefined?(m.sz||[])[s]:null;if(s!==undefined&&!z)return null;return{n:m.n+(z?'（'+z.n+'）':''),p:z?z.p:m.p,q,c:m.col||(pages().find(x=>x.id===pg(m))||{}).col||'',pn:(pages().find(x=>x.id===pg(m))||{}).n||'',nk:(m.nk||(pages().find(x=>x.id===pg(m))||{}).nk)?1:0}}).filter(Boolean),cnt=c=>lines(c).reduce((a,l)=>a+l.q,0),tot=c=>lines(c).reduce((s,l)=>s+l.p*l.q,0),iq=(q,id)=>Object.entries(q).filter(([k])=>k.split('#')[0]===id).reduce((a,[,v])=>a+v,0);
 const hm=t=>new Date(t).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
@@ -88,10 +88,11 @@ function addItem(){S.menu.push({id:'m'+Date.now(),n:'新商品',p:0,pg:pgP});sav
 function delItem(k){ask('この商品を削除しますか？',()=>{S.menu.splice(k,1);saveMenu();render()})}
 function go(v){nav.push(V);V=v;render()}function back(){if(RO){S.days=OWN;RO=null;DD=[];KEY=null}V=nav.pop()||'home';render()}
 const typing=()=>/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||'');
-function sigOf(){return V==='reg'?JSON.stringify([V,S.menu,S.pages]):V==='setup'?V+S.noStores:JSON.stringify([V,S.orders,S.menu,S.pages,S.stores,S.state,S.days.length,ALLD?ALLD.length:-1])}
-function refresh(){if(pressing||(typing()&&V!=='reg')){rpend=true;return}if(V==='home'&&TS)return;const sg=sigOf();if(sg===lastSig)return;lastSig=sg;if(['home','kitchen','close','orders','sales','admin','setup'].includes(V))render();else if(V==='reg'&&!dragging){drawGrid();drawBar()}}
+function sigOf(){return V==='reg'?JSON.stringify([V,S.menu,S.pages]):V==='setup'?V+S.noStores:JSON.stringify([V,S.orders,S.menu,S.pages,S.stores,S.state,S.inv,S.invset,(S.invlog||[]).length,S.days.length,ALLD?ALLD.length:-1])}
+function refresh(){if(pressing||(typing()&&V!=='reg')){rpend=true;return}if(V==='home'&&TS)return;const sg=sigOf();if(sg===lastSig)return;lastSig=sg;if(['home','kitchen','close','orders','sales','admin','setup','inv','invset'].includes(V))render();else if(V==='reg'&&!dragging){drawGrid();drawBar()}}
 
 function render(){
+  if(V==='home')INVOK=false;
   if(!['sales','lock','admin'].includes(V)){KEY=null;OKEY=null;DD=[];ALLD=null;AT='m';AS=''}
   let t='',r='',b='',af=null,bk=V!=='home';
   if(V==='home'){const c=cur(),n=c.filter(o=>o.status==='new').length;t='<button style="border:0;background:none;font-size:17px;font-weight:700;color:inherit" onclick="TS=!TS;render()">'+esc(STORE.name||'フードレジ')+' ▾</button>';r=isOwn()?'<button class="hb" onclick="go(\'apw\')">オーナー管理</button>':'<button class="hb" onclick="go(\'smgmt\')">管理</button>';
@@ -99,7 +100,11 @@ function render(){
     <button class="hc" onclick="go(NICK?'reg':'nick')"><i>🧾</i>レジ</button>
     <button class="hc" onclick="go('kitchen')"><i>🍳</i>厨房${n?`<span class="bg">${n}</span>`:''}</button>
     <button class="hc" onclick="go('products')"><i>🍔</i>商品登録</button>
-    <button class="hc" onclick="KEY=null;go('lock')"><i>📊</i>売上履歴</button></div>`}
+    <button class="hc" onclick="KEY=null;go('lock')"><i>📊</i>売上履歴</button>
+    <button class="hc" onclick="invOpen()"><i>📦</i>在庫管理${invLowCount()?`<span class="bg">${invLowCount()}</span>`:''}</button>
+    <button class="hc" style="opacity:.45" onclick="toast('準備中です')"><i>🚚</i>仕入れ<small style="display:block;font-size:12px;color:var(--sub)">準備中</small></button>
+    <button class="hc" style="opacity:.45" onclick="toast('準備中です')"><i>🧮</i>原価計算<small style="display:block;font-size:12px;color:var(--sub)">準備中</small></button>
+    <button class="hc" style="opacity:.45" onclick="toast('準備中です')"><i>📅</i>シフト管理<small style="display:block;font-size:12px;color:var(--sub)">準備中</small></button></div>`}
   else if(V==='reg'){t='レジ';r='<button class="hb" onclick="go(\'close\')">営業終了</button>';
     b=`<div class="tabs" id="tabs"></div><div class="tabs" id="ptabs"></div><main><div class="grid" id="grid"></div></main><div class="bar"><button class="hi" onclick="go('orders')">履歴</button><button class="nx" id="nx" onclick="P.cash='';go('pay')"></button></div>`;af=()=>{drawTabs();drawGrid();drawBar();bindReg()}}
   else if(V==='setup'){t='店舗の設定';bk=false;b=`<main><div class="box"><b>この端末の店舗コード</b><input id="sc" style="width:100%;margin-top:8px" placeholder="店舗コード" autocomplete="off" autocapitalize="off" enterkeyhint="go" onkeydown="if(event.key==='Enter')setStore()"><button class="pb al" onclick="setStore()">この店舗で使う</button></div><div class="box"><div class="sub">店舗アカウントをお持ちでない方はこちらから登録</div><button class="pb" onclick="go('newstore')">新規店舗登録</button></div>${S.noStores?'<div class="box"><b>はじめて使う場合</b><div class="sub">最初の店舗（オーナーの店舗）を作ります</div><input id="sn" style="width:100%;margin-top:8px" placeholder="店舗名"><button class="pb" onclick="firstStore()">店舗を作成</button></div>':''}</main>`}
@@ -131,6 +136,9 @@ function render(){
     b=`<main>${S.menu.map((m,k)=>`<div class="ln"><input value="${esc(m.n)}" onchange="S.menu[${k}].n=this.value;saveMenu()"><input type="number" value="${m.p}" onchange="S.menu[${k}].p=+this.value;saveMenu()"><button onclick="if(confirm('削除しますか？')){S.menu.splice(${k},1);saveMenu();render()}">×</button></div>`).join('')||'<div class="empty">商品がありません</div>'}
     <button class="pb al" onclick="S.menu.push({id:'m'+Date.now(),n:'新商品',p:0});saveMenu();render()">＋ 商品を追加</button><p class="sub">並び替えはレジ画面で商品を長押ししてドラッグします。</p></main>`}
   else if(V==='sales'){t='売上履歴'+(RO?'：'+esc((S.stores.find(x=>x.id===RO)||{}).name||''):'');b=salesView()}
+  else if(V==='invlock'||((V==='inv'||V==='invset')&&!INVOK)){V='invlock';t='在庫管理';b=`<main><div class="box"><div class="sub">在庫管理のパスワードを入力してください。売上履歴と同じパスワードです。</div>${NICK?'':'<div class="sub" style="margin-top:8px">ニックネーム（誰が在庫を変えたか記録します）</div><input id="ink" style="width:100%;margin-top:4px">'}<input id="ilp" type="password" style="width:100%;margin-top:8px" autocomplete="off" placeholder="パスワード" onkeydown="if(event.key==='Enter')invUnlock()"><button class="pb" onclick="invUnlock()">開く</button></div></main>`}
+  else if(V==='inv'){t='在庫管理';b=invView()}
+  else if(V==='invset'){t='在庫の設定';b=invSetView()}
   $('#app').innerHTML=`<header>${bk?'<button class="bk" onclick="back()">＜</button>':'<span></span>'}<b>${t}</b><span>${r}</span></header>${b}`;
   if(af)af();lastSig=sigOf()
 }
@@ -162,7 +170,7 @@ function key(k){const T=tot(cart());
 function drawPay(){const T=tot(cart()),c=Number(P.cash);$('#cv').textContent=P.cash?Number(P.cash).toLocaleString():'0';$('#cg').textContent='おつり '+(c>=T?yen(c-T):'—')}
 async function finish(k){const c=cart(),T=tot(c),items=lines(c);if(!items.length||finish.b)return;finish.b=1;setTimeout(()=>{finish.b=0},1500);
   const now=Date.now();if(!devL())assignDL();const dl=devL()||'',num=cur().filter(o=>(o.dl||'')===dl).reduce((a,o)=>Math.max(a,o.num||0),0)+1;
-  put('orders',{id:'o'+now,num,items,total:T,status:items.every(x=>x.nk)?'done':'new',createdAt:now,day:dayId(),pay:k,by:NICK,dl,cash:k==='cash'?(P.cash===''?T:Number(P.cash)):null});
+  put('orders',{id:'o'+now+(dl||'')+Math.random().toString(36).slice(2,6),num,items,total:T,status:items.every(x=>x.nk)?'done':'new',createdAt:now,day:dayId(),pay:k,by:NICK,dl,cash:k==='cash'?(P.cash===''?T:Number(P.cash)):null});
   if(carts.length>1)carts=carts.filter(x=>x!==c),ct=carts[0].id;else c.q={};
   toast('注文#'+(dl?dl+'-':'')+num+'を厨房へ送信しました');back()}
 const units=o=>{const r=[];let i=0;o.items.forEach(x=>{if(x.nk)return;for(let k=0;k<x.q;k++){r.push({c:x.c||'',i,n:x.n+(x.q>1?' '+(k+1)+'/'+x.q:''),s:(o.us||[])[i]==='d'?'d':'c'});i++}});return r};
@@ -186,14 +194,16 @@ const rid=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>'abcdefghj
 function ss(k,v){try{if(v===undefined)return sessionStorage.getItem(k);sessionStorage.setItem(k,v)}catch(e){return null}}
 let unsubs=[],OL=false;
 function detach(){unsubs.forEach(f=>{try{f()}catch(e){}});unsubs=[]}
-function attach(){detach();setTimeout(assignDL,1500);db={doc:p=>raw.doc('stores/'+SID+'/'+p),collection:p=>raw.collection('stores/'+SID+'/'+p),batch:()=>raw.batch(),runTransaction:f=>raw.runTransaction(f)};S.orders=[];S.days=[];S.menu=[];S.pages=[];S.state={};seen=null;
+function attach(){detach();setTimeout(assignDL,1500);db={doc:p=>raw.doc('stores/'+SID+'/'+p),collection:p=>raw.collection('stores/'+SID+'/'+p),batch:()=>raw.batch(),runTransaction:f=>raw.runTransaction(f)};S.orders=[];S.days=[];S.menu=[];S.pages=[];S.state={};S.inv=[];S.invlog=[];S.invset=null;IC={};IE=null;seen=null;
 
   const sub=(q,f)=>unsubs.push(q.onSnapshot(s=>{f(s);refresh()},e=>{$('#warn').textContent='同期エラー: '+e.code;$('#warn').hidden=false}));
   sub(db.collection('orders').orderBy('createdAt','desc'),s=>{S.orders=s.docs.map(d=>({id:d.id,...d.data()}));const ids=new Set(S.orders.filter(o=>o.status==='new').map(o=>o.id));if(seen&&V==='kitchen'&&[...ids].some(i=>!seen.has(i))){try{navigator.vibrate(300)}catch(_){}toast('新しい注文')}seen=ids});
   sub(db.collection('days').orderBy('date','desc').limit(1000),s=>{const l=s.docs.map(d=>({id:d.id,...d.data()}));if(RO)OWN=l;else S.days=l});
-  sub(db.collection('config'),s=>{S.state={};s.docs.forEach(d=>{if(d.id==='menu'){const x=JSON.parse(JSON.stringify(d.data()));S.menu=x.items||[];S.pages=x.pages||[]}if(d.id==='state')S.state=d.data()})})}
-function leaveStore(){detach();ss('store','');SID='';STORE={};S.orders=[];S.days=[];S.menu=[];S.pages=[];S.state={};nav=[];V='setup';render()}
-function useStore(id){ss('store',id);SID=id;STORE=S.stores.find(x=>x.id===id)||{};KEY=null;OKEY=null;DD=[];ALLD=null;RO=null;carts=[{id:1,q:{}}];ct=1;nt=2;nav=[];TS=false;pgR=null;pgP=null;PX=null;V='home';attach();render()}
+  sub(db.collection('config'),s=>{S.state={};s.docs.forEach(d=>{if(d.id==='menu'){const x=JSON.parse(JSON.stringify(d.data()));S.menu=x.items||[];S.pages=x.pages||[]}if(d.id==='state')S.state=d.data();if(d.id==='invset')S.invset=JSON.parse(JSON.stringify(d.data()))})});
+  sub(db.collection('inv'),s=>{S.inv=s.docs.map(d=>({id:d.id,...d.data()}))});
+  sub(db.collection('invlog').orderBy('at','desc').limit(300),s=>{S.invlog=s.docs.map(d=>d.data())})}
+function leaveStore(){detach();INVOK=false;ss('store','');SID='';STORE={};S.orders=[];S.days=[];S.menu=[];S.pages=[];S.state={};nav=[];V='setup';render()}
+function useStore(id){INVOK=false;ss('store',id);SID=id;STORE=S.stores.find(x=>x.id===id)||{};KEY=null;OKEY=null;DD=[];ALLD=null;RO=null;carts=[{id:1,q:{}}];ct=1;nt=2;nav=[];TS=false;pgR=null;pgP=null;PX=null;V='home';attach();render()}
 async function goStore(v){const c=String(v||'').normalize('NFKC').trim().toLowerCase();if(!/^[a-z0-9]+$/.test(c)){toast('店舗コードを入力してください');return false}try{const r=raw.doc('stores/'+c);if((await r.get()).exists){useStore(c);return true}if(c==='19891013'&&(await raw.collection('stores').where('name','==','チーズステーキ').get()).empty){await r.set({name:'チーズステーキ',owner:true,order:Math.max(-1,...S.stores.map(x=>x.order||0))+1});useStore(c);return true}toast('店舗コードが見つかりません')}catch(e){toast('通信できません。電波を確認して、もう一度押してください')}return false}
 async function setStore(){busy(1);if(!(await goStore($('#sc').value)))busy(0)}
 async function firstStore(){const n=$('#sn').value.trim();if(!n)return toast('店舗名を入力してください');const id=rid();try{await raw.doc('stores/'+id).set({name:n,order:0});useStore(id)}catch(e){toast('作成できません')}}
@@ -203,7 +213,7 @@ async function ownerGo(){if(!isOwn())return toast('この店舗では管理を�
 async function addStore(){const n=$('#an').value.trim(),c=String($('#ac').value||'').normalize('NFKC').trim();if(!n)return toast('店舗名を入力してください');if(!/^\d{8}$/.test(c))return toast('店舗コードは8桁の数字で入力してください');try{const r=raw.doc('stores/'+c);if((await r.get()).exists)return toast('その店舗コードはすでに使われています');await r.set({name:n,order:Math.max(-1,...S.stores.map(x=>x.order||0))+1});toast('店舗を追加しました');$('#an').value='';$('#ac').value=''}catch(e){toast('追加できません')}}
 function renStore(id,v){v=v.trim();if(!v)return toast('店舗名を入力してください');w(raw.doc('stores/'+id).update({name:v}));toast('店舗名を保存しました')}
 function viewStore(id){if(!OKEY)return toast('もう一度「管理」から開いてください');AS=id;ALLD=null;openAdminSales()}
-const SUBS=['orders','days','config','counters'];
+const SUBS=['orders','days','config','counters','inv','invlog'];
 function chgCode(id,v){v=String(v||'').normalize('NFKC').trim();if(!/^\d{8}$/.test(v))return toast('新しい店舗コードは8桁の数字で入力してください');if(v===id)return toast('今と同じコードです');const x=S.stores.find(y=>y.id===id);
   ask('「'+(x||{}).name+'」の店舗コードを '+id+' から '+v+' に変更します。古いコードでは入れなくなり、使用中の端末は店舗コードの入力画面に戻ります。',async()=>{try{toast('変更中です。そのままお待ちください');
     const nr=raw.doc('stores/'+v);if((await nr.get()).exists)return toast('その店舗コードはすでに使われています');
@@ -286,6 +296,74 @@ function salesView(){const L={y:4,m:7,d:10},K=H.key,pk=(c,o)=>H.f==='c'?c:H.f===
 function aggD(ds){const A={cash:0,other:0,count:0,hc:Array(24).fill(0),ho:Array(24).fill(0)},m={};
   ds.forEach(d=>{A.cash+=d.cash;A.other+=d.other;A.count+=d.count;d.hc.forEach((v,i)=>{A.hc[i]+=v;A.ho[i]+=d.ho[i]});d.items.forEach(x=>{const y=m[x.n]||(m[x.n]={n:x.n,c:0,o:0,qc:0,qo:0});['c','o','qc','qo'].forEach(k=>y[k]+=x[k])})});A.items=Object.values(m);return A}
 
+/* ===== 在庫管理 ===== */
+let INVOK=false,IC={},ICAT=null,IM='l',ISET='i',IE=null;
+const INV_DEF={cats:[{id:'c1',n:'食材'},{id:'c2',n:'包材'},{id:'c3',n:'消耗品'}],units:['kg','g','袋','本','缶','個','パック','箱','枚','L'],locs:['車内','冷蔵','冷凍','倉庫']};
+const iset=()=>{const x=S.invset||{};return{cats:(x.cats&&x.cats.length?x.cats:INV_DEF.cats),units:x.units||INV_DEF.units,locs:x.locs||INV_DEF.locs}};
+const icat=()=>{const c=iset().cats;if(!c.some(x=>x.id===ICAT))ICAT=c[0].id;return ICAT};
+const iitems=c=>(S.inv||[]).filter(i=>!c||(i.cat||iset().cats[0].id)===c).sort((a,b)=>(a.ord||0)-(b.ord||0));
+const ilow=i=>Number(i.min)>0&&Number(i.qty||0)<=Number(i.min);
+const iday=i=>{if(!i.exp)return null;const t=new Date();t.setHours(0,0,0,0);return Math.round((new Date(i.exp+'T00:00:00')-t)/864e5)};
+const iexpB=i=>{const d=iday(i);if(d===null)return '';const s=i.exp.slice(5).replace('-','/');return d<0?`<span style="color:var(--rd);font-weight:700">期限切れ ${s}</span>`:d<=3?`<span style="color:#e67700;font-weight:700">期限 ${s}（あと${d}日）</span>`:`<span>期限 ${s}</span>`};
+const inum=v=>{const n=Number(String(v).normalize('NFKC'));return isFinite(n)?n:NaN};
+function invLowCount(){return (S.inv||[]).filter(ilow).length}
+function saveISet(x){S.invset={...iset(),...x};if(db)w(db.doc('config/invset').set(S.invset));render()}
+function invLog(i,kind,from,to){const l={at:Date.now(),by:NICK||'不明',iid:i.id,n:i.n,unit:i.unit||'',kind,from,to};S.invlog=[l,...(S.invlog||[])];if(db)w(db.collection('invlog').add(l))}
+function invUpd(id,p){const i=(S.inv||[]).find(x=>x.id===id);if(!i)return;Object.assign(i,p);if(db)w(db.doc('inv/'+id).set(p,{merge:true}))}
+function invAdj(id,d){const i=(S.inv||[]).find(x=>x.id===id);if(!i||!d)return;const f=Number(i.qty||0),t=Math.round((f+d)*1000)/1000;i.qty=t;if(db)w(db.doc('inv/'+id).update({qty:firebase.firestore.FieldValue.increment(d)}));invLog(i,d>0?'増やす':'減らす',f,t);render()}
+function invSetQ(id,v,kind){const i=(S.inv||[]).find(x=>x.id===id);if(!i)return;const f=Number(i.qty||0);if(f===v)return;i.qty=v;if(db)w(db.doc('inv/'+id).set({qty:v},{merge:true}));invLog(i,kind||'数を直す',f,v)}
+function invNew(p){const id='i'+Date.now()+Math.random().toString(36).slice(2,5),it={n:'',cat:icat(),unit:iset().units[0]||'',qty:0,min:0,loc:'',exp:'',code:'',ord:Date.now(),...p};S.inv=[...(S.inv||[]),{id,...it}];if(db)w(db.doc('inv/'+id).set(it));return id}
+function invDel(id){const i=(S.inv||[]).find(x=>x.id===id);ask('「'+(i&&i.n||'名前なし')+'」を削除しますか？',()=>{S.inv=S.inv.filter(x=>x.id!==id);if(db)w(db.doc('inv/'+id).delete());render()})}
+function invMove(id,dir){const l=iitems(icat()),k=l.findIndex(x=>x.id===id),j=k+dir;if(j<0||j>=l.length)return;l.forEach((x,n)=>{x.ord=n});[l[k].ord,l[j].ord]=[l[j].ord,l[k].ord];l.forEach(x=>invUpd(x.id,{ord:x.ord}));render()}
+async function invCheckPw(v){if(!STORE.pub&&v===SID){try{await ensureStoreKey()}catch(e){}return true}try{await openKey(STORE,v);return true}catch(e){}if(OWNER&&OWNER.pub){try{await openKey(OWNER,v);return true}catch(e){}}return false}
+async function invUnlock(){const v=$('#ilp').value,nk=$('#ink')?$('#ink').value.trim():NICK;if(!nk)return toast('ニックネームを入力してください');if(!v)return toast('パスワードを入力してください');busy(1);const ok=await invCheckPw(v);busy(0);if(!ok)return toast('パスワードが違います');if(nk!==NICK){NICK=nk;ls('nick',nk)}INVOK=true;V='inv';render()}
+function invOpen(){go(INVOK?'inv':'invlock')}
+/* バーコード */
+let QR=null;
+const QL=()=>{const L=window.__Html5QrcodeLibrary__||{};return window.Html5Qrcode||L.Html5Qrcode?{Q:window.Html5Qrcode||L.Html5Qrcode,F:window.Html5QrcodeSupportedFormats||L.Html5QrcodeSupportedFormats||{}}:null};
+function loadQR(){return QL()?Promise.resolve():new Promise((ok,ng)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';s.onload=ok;s.onerror=ng;document.head.appendChild(s)})}
+function scanCode(cb){const d=document.createElement('div');d.id='qrm';d.style.cssText='position:fixed;inset:0;background:#000d;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:10px';
+  d.innerHTML='<div style="color:#fff;font-weight:700">バーコードをカメラに写してください</div><div id="qrr" style="width:100%;max-width:420px;background:#000;border-radius:12px;overflow:hidden;min-height:200px"></div><div class="ln" style="width:100%;max-width:420px"><input id="qrt" inputmode="numeric" placeholder="読めないときは番号を入力" style="flex:1"><button id="qro">決定</button></div><button id="qrc" class="sm" style="background:#fff;color:#222;min-width:140px">やめる</button>';
+  document.body.appendChild(d);let done=false;const fin=c=>{if(done)return;done=true;const s=QR;QR=null;(s?s.stop().catch(()=>{}):Promise.resolve()).then(()=>{try{s&&s.clear()}catch(e){}d.remove();if(c)cb(c)})};
+  d.querySelector('#qrc').onclick=()=>fin(null);d.querySelector('#qro').onclick=()=>{const v=d.querySelector('#qrt').value.normalize('NFKC').trim();if(v)fin(v)};
+  loadQR().then(()=>{if(done)return;const ql=QL();if(!ql)throw 0;const F=ql.F,fm=['EAN_13','EAN_8','UPC_A','UPC_E','CODE_128','CODE_39','ITF','QR_CODE'].map(k=>F[k]).filter(x=>x!==undefined);QR=new ql.Q('qrr',fm.length?{formatsToSupport:fm,verbose:false}:undefined);return QR.start({facingMode:'environment'},{fps:10,qrbox:(w,h)=>({width:Math.floor(w*.85),height:Math.floor(Math.min(h,w)*.5)})},t=>{try{navigator.vibrate(80)}catch(e){}fin(String(t).trim())},()=>{})}).catch(()=>{const r=d.querySelector('#qrr');if(r)r.innerHTML='<div style="color:#fff;padding:20px;font-size:14px">カメラを使えませんでした。カメラの使用を許可するか、下に番号を入力してください。</div>'})}
+function invScanFind(){scanCode(c=>{const i=(S.inv||[]).find(x=>x.code===c);if(i){ICAT=i.cat||ICAT;invQty(i.id)}else ask('このバーコード（'+c+'）は、まだ登録されていません。新しい品目として登録しますか？',()=>{IE=invNew({code:c});ISET='i';go('invset')})})}
+function invScanNew(){scanCode(c=>{const i=(S.inv||[]).find(x=>x.code===c);if(i){toast('「'+i.n+'」に登録済みのバーコードです');IE=i.id;ICAT=i.cat||ICAT;render();return}IE=invNew({code:c});render()})}
+function invScanSet(id){scanCode(c=>{const o=(S.inv||[]).find(x=>x.code===c&&x.id!==id);if(o)return toast('「'+o.n+'」に登録済みのバーコードです');invUpd(id,{code:c});render()})}
+/* 数の変更ダイアログ */
+function invQty(id){const i=(S.inv||[]).find(x=>x.id===id);if(!i)return;const d=document.createElement('div');d.style.cssText='position:fixed;inset:0;background:#0007;z-index:20;display:flex;align-items:center;justify-content:center;padding:20px';
+  d.innerHTML=`<div class="box" style="max-width:360px;width:100%;margin:0"><b style="font-size:18px">${esc(i.n||'名前なし')}</b><div class="sub">今の数</div><div class="big" id="iqv">${i.qty||0} <small style="font-size:16px">${esc(i.unit||'')}</small></div>
+  <input id="iqn" inputmode="decimal" placeholder="数を入力" style="width:100%;margin:8px 0;font-size:20px">
+  <div class="ln"><button style="flex:1" data-k="sub">− 減らす</button><button style="flex:1" data-k="add">＋ 増やす</button></div><button class="pb al" data-k="set" style="margin-top:2px">この数に直す</button><button class="sm" data-k="x" style="width:100%;margin-top:8px">閉じる</button></div>`;
+  document.body.appendChild(d);const n=d.querySelector('#iqn');setTimeout(()=>n.focus(),50);
+  d.onclick=e=>{const k=e.target.dataset&&e.target.dataset.k;if(e.target===d||k==='x'){d.remove();return}if(!k)return;const v=inum(n.value);if(n.value===''||isNaN(v)||v<0)return toast('数を入力してください');d.remove();if(k==='set'){invSetQ(id,v,'数を直す');render()}else invAdj(id,k==='add'?v:-v)}}
+/* 画面 */
+function invTabs(){const s=iset(),c=icat();return `<div class="tabs" style="align-items:center">${s.cats.map(x=>`<button class="tb ${x.id===c?'on':''}" onclick="ICAT='${x.id}';render()">${esc(x.n)}${(S.inv||[]).some(i=>(i.cat||s.cats[0].id)===x.id&&ilow(i))?'<i>🔴少ない</i>':''}</button>`).join('')}<span style="flex:1"></span><button class="tb" style="position:sticky;right:0" onclick="go('invset')">⚙️設定</button></div>`}
+function invView(){const s=iset(),c=icat(),seg=`<div class="seg sg2">${[['l','在庫'],['t','棚卸し'],['o','発注リスト'+(invLowCount()?`(${invLowCount()})`:'')],['h','履歴']].map(([k,n])=>`<button class="${IM===k?'on':''}" onclick="IM='${k}';IC={};render()">${n}</button>`).join('')}</div>`;
+  let b='';
+  if(IM==='l'){const l=iitems(c);b=`<button class="pb al" style="margin:0 0 10px" onclick="invScanFind()">📷 バーコードで探す</button>`+(l.map(i=>{const lw=ilow(i);return `<div class="box" style="${lw?'border-color:var(--rd);border-width:2px':''}"><div class="r"><button style="flex:1;text-align:left;border:0;background:none;padding:0" onclick="invQty('${i.id}')"><b style="font-size:17px">${esc(i.n||'名前なし')}</b><div class="sub">${[i.loc?'📍'+esc(i.loc):'',iexpB(i),Number(i.min)>0?'発注の目安 '+i.min+esc(i.unit||''):''].filter(Boolean).join('　')}</div></button>
+    <button class="sm" style="width:44px;height:44px;font-size:22px" onclick="invAdj('${i.id}',-1)">−</button><button style="min-width:70px;border:0;background:none;text-align:center" onclick="invQty('${i.id}')"><b style="font-size:22px;${lw?'color:var(--rd)':''}">${i.qty||0}</b><div class="sub">${esc(i.unit||'')}</div></button><button class="sm" style="width:44px;height:44px;font-size:22px" onclick="invAdj('${i.id}',1)">＋</button></div>${lw?'<div style="color:var(--rd);font-size:13px;font-weight:700">🔴 少なくなっています</div>':''}</div>`}).join('')||`<div class="empty">品目がありません。<br>右上の「⚙️設定」から登録してください。</div>`)}
+  else if(IM==='t'){const l=iitems(c);b=`<p class="sub" style="margin-top:0">今ある数を数えて入力し、最後に「保存」を押してください。空欄の品目は変わりません。</p>`+(l.map(i=>`<div class="box r"><span><b>${esc(i.n||'名前なし')}</b><div class="sub">今の記録：${i.qty||0}${esc(i.unit||'')}</div></span><span style="display:flex;align-items:center;gap:6px"><input inputmode="decimal" style="width:90px;font-size:18px;text-align:right" value="${IC[i.id]??''}" oninput="IC['${i.id}']=this.value"><span>${esc(i.unit||'')}</span></span></div>`).join('')||'<div class="empty">品目がありません</div>')+(l.length?`<button class="pb" onclick="invTana()">棚卸しを保存</button>`:'')}
+  else if(IM==='o'){const l=(S.inv||[]).filter(ilow);b=(l.length?`<button class="pb al" style="margin:0 0 10px" onclick="invCopy()">📋 発注リストをコピー（LINEなどに貼れます）</button>`+s.cats.map(ct=>{const g=l.filter(i=>(i.cat||s.cats[0].id)===ct.id);return g.length?`<div class="box"><b>${esc(ct.n)}</b>${g.map(i=>`<div class="r"><span>${esc(i.n)}</span><span style="color:var(--rd)">残り ${i.qty||0}${esc(i.unit||'')}<small class="sub">（目安 ${i.min}${esc(i.unit||'')}）</small></span></div>`).join('')}</div>`:''}).join(''):'<div class="empty">少なくなっている品目はありません。<br>「⚙️設定」で品目ごとに「発注の目安」を決めると、ここに出ます。</div>')+`<p class="sub">すべてのカテゴリの品目が出ます。</p>`}
+  else{const l=(S.invlog||[]).slice(0,200);b=(l.map(x=>{const d=Math.round((x.to-x.from)*1000)/1000;return `<div class="box"><div class="r"><b>${esc(x.n||'')}</b><span class="sub">${new Date(x.at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span></div><div class="r"><span class="sub">👤 ${esc(x.by||'不明')}　${esc(x.kind||'')}</span><span>${x.from} → <b>${x.to}</b>${esc(x.unit||'')}（${d>0?'+':''}${d}）</span></div></div>`}).join('')||'<div class="empty">まだ記録がありません</div>')+'<p class="sub">すべてのカテゴリの直近の記録が出ます。</p>'}
+  return invTabs()+'<main>'+seg+b+'</main>'}
+function invTana(){const ch=Object.entries(IC).filter(([,v])=>String(v).trim()!=='');if(!ch.length)return toast('数が入力されていません');for(const[,v]of ch){const n=inum(v);if(isNaN(n)||n<0)return toast('数の入力を確認してください')}ch.forEach(([id,v])=>invSetQ(id,inum(v),'棚卸し'));IC={};toast(ch.length+'品目を保存しました');render()}
+function invCopy(){const s=iset(),l=(S.inv||[]).filter(ilow),d=new Date(),t=`【発注リスト】${STORE.name||''} ${d.getMonth()+1}/${d.getDate()}\n`+s.cats.map(ct=>{const g=l.filter(i=>(i.cat||s.cats[0].id)===ct.id);return g.length?`■${ct.n}\n`+g.map(i=>`・${i.n} 残り${i.qty||0}${i.unit||''}（目安${i.min}${i.unit||''}）`).join('\n'):''}).filter(Boolean).join('\n');
+  const ok=()=>toast('コピーしました');if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok).catch(()=>fbCopy(t));else fbCopy(t)}
+function fbCopy(t){const a=document.createElement('textarea');a.value=t;a.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('コピーしました')}catch(e){toast('コピーできませんでした')}a.remove()}
+function invSetView(){const s=iset(),c=icat(),seg=`<div class="seg sg2">${[['i','品目'],['c','カテゴリ'],['u','単位'],['p','保管場所']].map(([k,n])=>`<button class="${ISET===k?'on':''}" onclick="ISET='${k}';render()">${n}</button>`).join('')}</div>`,opt=(l,v)=>l.map(x=>`<option ${x===v?'selected':''}>${esc(x)}</option>`).join('');let b='';
+  if(ISET==='i'){const l=iitems(c);b=`<div class="ln"><button style="flex:1" onclick="IE=invNew({});render()">＋ 手入力で追加</button><button style="flex:1" onclick="invScanNew()">📷 バーコードで追加</button></div>`+(l.map((i,k)=>{const o=IE===i.id;return `<div class="box" style="${o?'border:2px solid var(--ac)':''}"><div class="r"><b style="flex:1" onclick="IE=IE==='${i.id}'?null:'${i.id}';render()">${esc(i.n||'（名前を入力）')} <span class="sub">${esc(i.unit||'')}${i.code?' 🏷️':''}</span></b><button class="sm" onclick="invMove('${i.id}',-1)" ${k?'':'disabled'}>↑</button><button class="sm" onclick="invMove('${i.id}',1)" ${k<l.length-1?'':'disabled'}>↓</button><button class="sm" onclick="IE=IE==='${i.id}'?null:'${i.id}';render()">${o?'閉じる':'編集'}</button></div>${o?`
+    <div class="sub" style="margin-top:6px">品目名</div><input style="width:100%" value="${esc(i.n||'')}" placeholder="例：牛肉" onchange="invUpd('${i.id}',{n:this.value.trim()})">
+    <div class="ln" style="margin-top:8px"><label style="flex:1"><div class="sub">単位</div><select style="width:100%" onchange="invUpd('${i.id}',{unit:this.value})">${s.units.includes(i.unit)||!i.unit?'':`<option selected>${esc(i.unit)}</option>`}${opt(s.units,i.unit)}</select></label><label style="flex:1"><div class="sub">カテゴリ</div><select style="width:100%" onchange="invUpd('${i.id}',{cat:this.value});render()">${s.cats.map(x=>`<option value="${x.id}" ${x.id===(i.cat||s.cats[0].id)?'selected':''}>${esc(x.n)}</option>`).join('')}</select></label></div>
+    <div class="ln"><label style="flex:1"><div class="sub">発注の目安（以下で🔴）</div><input inputmode="decimal" style="width:100%" value="${i.min||''}" placeholder="0＝お知らせなし" onchange="const v=inum(this.value||0);if(isNaN(v)||v<0)return toast('数を確認してください');invUpd('${i.id}',{min:v})"></label><label style="flex:1"><div class="sub">保管場所</div><select style="width:100%" onchange="invUpd('${i.id}',{loc:this.value})"><option value="">なし</option>${opt(s.locs,i.loc)}</select></label></div>
+    <div class="ln"><label style="flex:1"><div class="sub">賞味期限</div><input type="date" style="width:100%" value="${esc(i.exp||'')}" onchange="invUpd('${i.id}',{exp:this.value})"></label></div>
+    <div class="sub">バーコード</div><div class="ln"><input style="flex:1" inputmode="numeric" value="${esc(i.code||'')}" placeholder="なし" onchange="const v=this.value.normalize('NFKC').trim(),o=(S.inv||[]).find(x=>v&&x.code===v&&x.id!=='${i.id}');if(o){toast('「'+o.n+'」に登録済みのバーコードです');render();return}invUpd('${i.id}',{code:v})"><button onclick="invScanSet('${i.id}')">📷 読み取る</button></div>
+    <button class="sm" style="color:var(--rd);margin-top:4px" onclick="invDel('${i.id}')">この品目を削除</button>`:''}</div>`}).join('')||'<div class="empty">このカテゴリの品目はまだありません</div>')+'<p class="sub">品目名をタップすると、単位・発注の目安・保管場所・賞味期限・バーコードを設定できます。在庫の数は、在庫画面で入力します。</p>'}
+  else if(ISET==='c'){b=s.cats.map((x,k)=>`<div class="ln"><input style="flex:1" value="${esc(x.n)}" onchange="const v=this.value.trim();if(!v)return toast('名前を入力してください');saveISet({cats:iset().cats.map(y=>y.id==='${x.id}'?{...y,n:v}:y)})"><button onclick="invCatMove(${k},-1)" ${k?'':'disabled'}>↑</button><button onclick="invCatMove(${k},1)" ${k<s.cats.length-1?'':'disabled'}>↓</button><button onclick="invCatDel('${x.id}')">削除</button></div>`).join('')+`<div class="ln" style="margin-top:12px"><input id="icn" style="flex:1" placeholder="新しいカテゴリ名"><button onclick="const v=$('#icn').value.trim();if(!v)return toast('名前を入力してください');saveISet({cats:[...iset().cats,{id:'c'+Date.now(),n:v}]})">追加</button></div><p class="sub">カテゴリは在庫画面のタブになります。</p>`}
+  else{const key=ISET==='u'?'units':'locs',l=s[key];b=`<div class="box">${l.map((x,k)=>`<div class="r"><span>${esc(x)}</span><button class="sm" onclick="saveISet({${key}:iset().${key}.filter((_,j)=>j!==${k})})">削除</button></div>`).join('')||'<div class="sub">まだありません</div>'}</div><div class="ln"><input id="iun" style="flex:1" placeholder="${ISET==='u'?'例：ケース':'例：クーラーボックス'}"><button onclick="const v=$('#iun').value.trim();if(!v)return toast('入力してください');if(iset().${key}.includes(v))return toast('すでにあります');saveISet({${key}:[...iset().${key},v]})">追加</button></div>`}
+  return invTabs().replace(/<button class="tb" style="position:sticky[^]*?<\/button><\/div>$/,'</div>')+'<main>'+seg+b+'</main>'}
+function invCatMove(k,d){const c=[...iset().cats],j=k+d;if(j<0||j>=c.length)return;[c[k],c[j]]=[c[j],c[k]];saveISet({cats:c})}
+function invCatDel(id){const s=iset();if(s.cats.length<=1)return toast('カテゴリは1つ以上必要です');if((S.inv||[]).some(i=>(i.cat||s.cats[0].id)===id))return toast('このカテゴリの品目を、先に別のカテゴリへ移すか削除してください');ask('このカテゴリを削除しますか？',()=>saveISet({cats:s.cats.filter(x=>x.id!==id)}))}
 document.addEventListener('touchstart',()=>{pressing=true;if(dragging&&Date.now()-dragAt>2500)dragging=false},{capture:true,passive:true});
 const relP=()=>setTimeout(()=>{pressing=false;if(rpend&&!typing()){rpend=false;refresh()}},120);
 document.addEventListener('touchend',relP,true);document.addEventListener('touchcancel',relP,true);
